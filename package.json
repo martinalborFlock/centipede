@@ -6,9 +6,13 @@
   "scripts": {
     "build": "vite build && vite build -c vite.content.config.ts",
     "watch": "vite build --watch",
-    "dev": "vite build --watch"
+    "dev": "vite build --watch",
+    "replay": "node replay/cli.ts",
+    "replay:check": "tsc -p replay/tsconfig.json"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
+    "playwright": "^1.64.0",
     "typescript": "^5.5.0",
     "vite": "^5.4.0",
     "vite-plugin-static-copy": "^1.0.2"

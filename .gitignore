@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.cjs
 mcp/.token
+replay/output/
