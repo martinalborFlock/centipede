@@ -5,20 +5,26 @@ Extensión de Chrome (Manifest V3) para capturar interacciones del usuario (*Ses
 ## Estado actual
 
 - **Captura de pasos (*Event Capture*)**: listeners sobre `click`, `input`, `change`, `keydown`, `focus`, `scroll`, `mouseover`, `dblclick` y `contextmenu`, con enmascaramiento de campos `password`.
+- **Escrituras consecutivas (*Write Coalescing*)**: varias escrituras seguidas sobre el mismo campo se reducen a un único paso con el valor final.
+- **Captura de navegación (*Navigation Events*)**: pasos `navigate` para cargas de página y navegaciones sin recarga (Navigation API).
 - **Identificación de elementos**: selector CSS (*CSS Selector*) y texto visible por elemento.
-- **Exportación**: texto numerado y JSON (`RecordingData`), copiados al portapapeles.
-- **Reporte en lenguaje natural**: texto legible con encabezado (página, URL, fecha, cantidad de pasos) y pasos numerados en oraciones completas. Disponible en el panel flotante y en el popup.
-- **Estado compartido (*Shared State*)**: la sesión vive en `chrome.storage.local`; el popup y el panel flotante leen el mismo estado y se actualizan en vivo (`storage.onChanged`).
+- **Exportación**: reporte en lenguaje natural, texto numerado y JSON, desde el popup, el panel flotante y el panel lateral. Todos usan el mismo módulo de formateo (`renderReport`).
+- **Estado compartido (*Shared State*)**: la sesión activa vive en `chrome.storage.local`; el popup, el panel flotante y el panel lateral leen el mismo estado y se actualizan en vivo (`storage.onChanged`).
 - **Continuidad entre páginas**: la grabación sobrevive a la navegación dentro de la pestaña dueña (el panel se restaura desde el storage).
-- **Nueva grabación con advertencia**: descartar una sesión con pasos no guardados requiere confirmación.
+- **Biblioteca de sesiones guardadas**: "Guardar" archiva la grabación activa en `chrome.storage.local` (clave `library`) y libera la sesión activa.
+- **Panel lateral (*Side Panel*)**: lista de sesiones guardadas con filtro por rango de fechas, detalle con los pasos, reportes en natural/texto/JSON, eliminación, e inicio de nuevas grabaciones. Muestra también la grabación activa.
+- **Nueva grabación con advertencia**: descartar una sesión con pasos sin guardar (o cerrar el panel) requiere confirmación.
+- **Puente con Claude (*MCP POC*)**: servidor MCP en `mcp/` (stdio para Claude Code) que se comunica con la extensión por WebSocket en `127.0.0.1`, con token de emparejamiento. Herramientas: `centipede_status`, `centipede_get_session`, `centipede_get_report`. Validado con un cliente simulado; **pendiente de prueba en Chrome real**.
+- **Build**: el popup, el panel lateral y el background se empaquetan como módulos ES; `content.js` se empaqueta aparte como IIFE (`vite.content.config.ts`), porque las content scripts no admiten `import`.
 
-## Fase 2 — Formatos de salida múltiples
+## Fase 2 — Formatos de salida múltiples (cerrada por ahora)
 
-Objetivo: que un mismo registro de sesión (*Session Record*) pueda renderizarse en distintos formatos según el contexto.
+Cubierto: reporte en lenguaje natural, texto numerado y JSON, incluidos el reporte en texto y Markdown.
 
-- **Arquitectura de renderers (*Exporter / Renderer Pattern*)**: una interfaz común `Renderer` con `format(session) → string | Blob` y un registro de formatos (*Format Registry*). El popup lista los formatos disponibles sin conocer sus detalles.
+Pendiente, para más adelante:
+
+- **Registro extensible de formatos (*Format Registry*)**: hoy `renderReport` resuelve los formatos con un `switch`. Sirve mientras sean pocos; si se agregan más, conviene una interfaz `Renderer` con registro.
 - **Formatos previstos**:
-  - Texto plano y Markdown.
   - HTML (para compartir o imprimir).
   - Caso de prueba (*Test Case*): precondiciones, pasos (*Steps*), resultado esperado y resultado obtenido.
   - Escenario en Gherkin (*BDD*: `Given / When / Then`).
@@ -28,12 +34,23 @@ Objetivo: que un mismo registro de sesión (*Session Record*) pueda renderizarse
 
 ## Fase 3 — Calidad y enriquecimiento del registro
 
-- **Reducción de ruido (*Noise Filtering / Event Deduplication*)**: colapsar `mouseover` y `scroll` repetidos, unificar `input` consecutivos sobre el mismo campo en un único paso.
-- **Captura de navegación (*Navigation Events*)**: registrar cambios de URL y cargas de página, que hoy no se capturan.
+Hecho:
+
+- ✅ **Escrituras consecutivas**: "mono" produce un único paso con el valor final. Cualquier otra acción (foco, tecla, clic) corta la secuencia.
+- ✅ **Mouseover repetido**: pasar varias veces el mouse sobre el mismo elemento, sin otra acción en medio, genera un solo paso.
+- ✅ **Grabación desde el panel lateral sin ventana flotante**: la grabación iniciada desde el panel lateral no inyecta el panel en la página. La preferencia se guarda en la sesión y se respeta al navegar.
+- ✅ **Captura de navegación**: un paso `navigate` por cada cambio de página, incluidas las navegaciones sin recarga.
+- ✅ **Guardado de grabaciones (*Save / Recording Library*)**: archivado en `library`, con fecha de guardado y un identificador.
+- ✅ **Panel lateral de sesiones**: búsqueda por rango de fechas, visualización de pasos y generación de reportes.
+- ✅ **Almacenamiento sin límite fijo**: se habilitó `unlimitedStorage`, así que el límite de 10 MB ya no aplica.
+
+Pendiente:
+
+- **Reducción de ruido en scroll**: hoy se limita a un paso cada 500 ms; falta colapsar los scrolls consecutivos de una misma sesión de desplazamiento.
 - **Selectores resilientes (*Resilient Locators / Locator Strategy*)**: priorizar atributos estables (`data-testid`, `role` + nombre accesible, `label`) sobre rutas `nth-child`, que se rompen con cambios de DOM.
 - **Evidencia visual (*Screenshot Capture*)**: captura por paso o ante cada acción crítica (`chrome.tabs.captureVisibleTab`).
-- **Datos sensibles (*PII Redaction / Data Masking*)**: política configurable de enmascaramiento más allá de `type="password"` (emails, tarjetas, tokens).
-- **Guardado de grabaciones (*Save / Recording Library*)**: guardar la sesión con nombre y fecha, listarla, reabrirla y eliminarla. Hoy la sesión existe hasta que se crea otra o se cierra, por eso la advertencia de descarte. Si el volumen supera el límite de `chrome.storage.local` (10 MB por defecto), evaluar `unlimitedStorage` o `IndexedDB`.
+- **Datos sensibles (*PII Redaction / Data Masking*)**: política configurable de enmascaramiento más allá de `type="password"` (emails, tarjetas, tokens). Relevante también antes de exponer el reporte a Claude.
+- **Biblioteca, mejoras**: nombre editable de cada grabación, búsqueda por texto además de fecha, y eliminación masiva.
 
 ## Fase 4 — Campos de reporte y metadatos
 
@@ -41,18 +58,31 @@ Objetivo: que un mismo registro de sesión (*Session Record*) pueda renderizarse
 - **Aserciones (*Assertions / Test Oracle*)**: permitir marcar el resultado esperado durante la grabación.
 - **Parametrización de datos (*Data-driven Testing*)**: reemplazar valores concretos por variables para reutilizar el caso con otros datos.
 
-## Fase 5 — Reproducción automatizada
+## Fase 5 — Integración con agentes (MCP)
+
+Objetivo: que Claude (u otro cliente MCP) consulte y maneje las grabaciones desde la conversación.
+
+- **Validación en Chrome real (*Smoke Test*)**: confirmar que el service worker abre el WebSocket a `127.0.0.1` sin permisos de host adicionales, y que se mantiene vivo con el ping periódico.
+- **Identidad fija de la extensión (*Stable Extension ID*)**: agregar el campo `key` al manifest para que el ID sea el mismo en todas las máquinas, y limitar el puente a ese origen (hoy acepta cualquier `chrome-extension://` con token).
+- **Distribución del puente (*Packaging / Distribution*)**: publicar `centipede-mcp` como paquete instalable (npm interno o público) o empaquetarlo como ejecutable único para no requerir Node en cada equipo. Hoy el servidor corre desde el repo con `node mcp/server.mjs`.
+- **Instalación de la extensión (*Extension Distribution*)**: Chrome Web Store como no listada, o política de empresa (`ExtensionInstallForcelist`). Confirmar primero qué políticas aplican en las máquinas de la empresa.
+- **Gestión del token (*Pairing Token Rotation*)**: rotación, revocación y eliminación del token desde el popup; evaluar un flujo de emparejamiento de un solo uso en lugar de copiar y pegar.
+- ✅ **Biblioteca desde Claude**: `centipede_list_sessions` (con filtro por fechas), y `session_id` en `centipede_get_session` y `centipede_get_report` para analizar grabaciones guardadas.
+- **Más herramientas MCP**: iniciar y detener una grabación desde Claude, y devolver evidencia (capturas) cuando la Fase 3 la incluya.
+- **Alternativa descartada por ahora**: *Native Messaging* (Chrome lanza un host local por stdio). Evita abrir un puerto, pero exige registrar un manifest por sistema operativo y, por lo tanto, un instalador por máquina.
+
+## Fase 6 — Reproducción automatizada
 
 Objetivo: reproducir un bug en el entorno del desarrollador a partir del registro, sin intervención manual.
 
 - **Conversión a script (*Test Script Generation*)**: traducir los pasos a acciones de Playwright (`page.getByRole`, `page.fill`, `page.click`, etc.).
-- **Servidor MCP de Playwright (*Model Context Protocol – Playwright MCP*)**: exponer la reproducción como herramientas que un agente de IA (o un cliente MCP) pueda invocar: cargar la sesión, ejecutar pasos, consultar el estado de la página.
+- **Servidor MCP de Playwright (*Model Context Protocol – Playwright MCP*)**: exponer la reproducción como herramientas que un agente de IA (o un cliente MCP) pueda invocar: cargar la sesión, ejecutar pasos, consultar el estado de la página. Se puede agregar al mismo puente de la Fase 5 o como servidor separado.
 - **Perfiles de entorno (*Environment Profiles*)**: mapear la URL grabada (por ejemplo, producción o staging) a la URL local o de desarrollo del desarrollador.
 - **Resultado de reproducción (*Replay Result*)**: estado por ejecución: `Reproduced`, `Not Reproduced`, `Flaky` o `Error`, con captura del momento en que falla.
 - **Reproducción sobre `Test Runner`**: integrar con Playwright Test para ejecución repetida y reporte (*Test Report*).
 - **Detección de regresiones (*Regression Testing*)**: volver a ejecutar un bug reportado como caso de regresión tras cada cambio.
 
-## Fase 6 — Integraciones y plataforma
+## Fase 7 — Integraciones y plataforma
 
 - **Integración con trackers (*Issue Tracker Integration*)**: crear o actualizar issues vía API (Jira, Azure DevOps, GitHub).
 - **Soporte multi-navegador (*Cross-browser Support*)**: Firefox y Edge (Chromium), con adaptaciones de la API de extensiones.

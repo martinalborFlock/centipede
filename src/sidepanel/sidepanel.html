@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Centipede</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="sp-header">
+      <button class="sp-btn primary" id="btn-new">Nueva grabación</button>
+    </header>
+
+    <section class="sp-card">
+      <div class="sp-card-title">Claude</div>
+      <div class="sp-bridge-status" id="bridge-status">Claude: desconectado</div>
+      <div class="sp-row">
+        <input
+          type="password"
+          id="bridge-token"
+          class="sp-input"
+          placeholder="Token de emparejamiento"
+          autocomplete="off"
+        />
+        <button class="sp-btn ghost small" id="btn-save-token">Guardar</button>
+      </div>
+    </section>
+
+    <main id="view-list">
+      <section class="sp-card">
+        <div class="sp-card-title">Grabación actual</div>
+        <div class="sp-status" id="current-status">Sin grabación activa</div>
+        <div class="sp-row">
+          <button class="sp-btn" id="btn-stop" disabled>Detener</button>
+          <button class="sp-btn primary" id="btn-save" disabled>Guardar</button>
+          <button class="sp-btn ghost" id="btn-current-view" disabled>
+            Ver pasos
+          </button>
+        </div>
+        <div class="sp-row">
+          <button class="sp-btn ghost" id="current-report" disabled>
+            Reporte
+          </button>
+          <button class="sp-btn ghost" id="current-text" disabled>Texto</button>
+          <button class="sp-btn ghost" id="current-json" disabled>JSON</button>
+        </div>
+      </section>
+
+      <section class="sp-card">
+        <div class="sp-card-title">
+          Sesiones guardadas <span class="sp-muted" id="library-count"></span>
+        </div>
+        <div class="sp-filters">
+          <label>Desde <input type="date" id="filter-from" /></label>
+          <label>Hasta <input type="date" id="filter-to" /></label>
+          <button class="sp-btn ghost small" id="btn-clear-filters">
+            Limpiar
+          </button>
+        </div>
+        <ul class="sp-list" id="library-list"></ul>
+      </section>
+    </main>
+
+    <main id="view-detail" hidden>
+      <button class="sp-btn ghost" id="btn-back">← Volver</button>
+      <section class="sp-card">
+        <div class="sp-detail-title" id="detail-title"></div>
+        <div class="sp-detail-meta" id="detail-meta"></div>
+        <ol class="sp-steps" id="detail-steps"></ol>
+        <div class="sp-row">
+          <button class="sp-btn ghost" id="detail-report">Reporte</button>
+          <button class="sp-btn ghost" id="detail-text">Texto</button>
+          <button class="sp-btn ghost" id="detail-json">JSON</button>
+        </div>
+        <button class="sp-btn danger" id="detail-delete">
+          Eliminar de la biblioteca
+        </button>
+      </section>
+    </main>
+
+    <div class="sp-toast" id="toast" hidden></div>
+
+    <script src="sidepanel.js" type="module"></script>
+  </body>
+</html>

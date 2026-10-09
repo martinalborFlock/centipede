@@ -14,10 +14,12 @@ export class FloatingPanel {
   private statusIndicator: HTMLDivElement | null = null;
   private copyReportButton: HTMLButtonElement | null = null;
   private newRecordingButton: HTMLButtonElement | null = null;
+  private saveButton: HTMLButtonElement | null = null;
   private steps: Step[] = [];
   private timestamp = new Date().toISOString();
   private onStop?: () => void;
   private onNewRecording?: () => void;
+  private onSave?: () => void;
   private onClose?: () => void;
   private onCopyReport?: (text: string) => void;
   private onCopyText?: (text: string) => void;
@@ -27,6 +29,7 @@ export class FloatingPanel {
   constructor(callbacks: {
     onStop?: () => void;
     onNewRecording?: () => void;
+    onSave?: () => void;
     onClose?: () => void;
     onCopyReport?: (text: string) => void;
     onCopyText?: (text: string) => void;
@@ -34,6 +37,7 @@ export class FloatingPanel {
   }) {
     this.onStop = callbacks.onStop;
     this.onNewRecording = callbacks.onNewRecording;
+    this.onSave = callbacks.onSave;
     this.onClose = callbacks.onClose;
     this.onCopyReport = callbacks.onCopyReport;
     this.onCopyText = callbacks.onCopyText;
@@ -77,6 +81,7 @@ export class FloatingPanel {
     }
 
     const hasSteps = state.stepCount > 0;
+    if (this.saveButton) this.saveButton.disabled = !hasSteps;
     if (this.copyReportButton) this.copyReportButton.disabled = !hasSteps;
     if (this.copyTextButton) this.copyTextButton.disabled = !hasSteps;
     if (this.copyJsonButton) this.copyJsonButton.disabled = !hasSteps;
@@ -349,6 +354,7 @@ export class FloatingPanel {
       <div class="br-footer">
         <button class="br-btn br-btn-stop" id="br-stop-btn">Detener</button>
         <button class="br-btn br-btn-copy" id="br-new-btn">Nueva grabación</button>
+        <button class="br-btn br-btn-copy" id="br-save-btn" disabled>Guardar</button>
         <button class="br-btn br-btn-copy" id="br-copy-report" disabled>Reporte</button>
         <button class="br-btn br-btn-copy" id="br-copy-text" disabled>Texto</button>
         <button class="br-btn br-btn-copy" id="br-copy-json" disabled>JSON</button>
@@ -375,11 +381,14 @@ export class FloatingPanel {
     this.newRecordingButton = document.getElementById(
       "br-new-btn"
     ) as HTMLButtonElement;
+    this.saveButton = document.getElementById("br-save-btn") as HTMLButtonElement;
     this.statusIndicator = this.panel.querySelector(
       ".br-status-indicator"
     ) as HTMLDivElement;
 
     this.stopButton.addEventListener("click", () => this.onStop?.());
+
+    this.saveButton.addEventListener("click", () => this.onSave?.());
 
     this.newRecordingButton.addEventListener("click", () => {
       if (this.confirmDiscard()) this.onNewRecording?.();

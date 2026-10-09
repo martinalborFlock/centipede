@@ -1,0 +1,18 @@
+{
+  "name": "centipede-mcp",
+  "version": "1.0.0",
+  "description": "Puente MCP para la extensión Centipede",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "type": "module"
+}

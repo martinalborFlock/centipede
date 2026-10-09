@@ -16,6 +16,8 @@ export class Recorder {
   private stepCounter = 0;
   private onChange?: (steps: Step[], state: RecordingState) => void;
   private scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Elemento del último paso registrado (para colapsar acciones repetidas sobre el mismo elemento).
+  private lastTarget: Element | null = null;
 
   constructor(onChange?: (steps: Step[], state: RecordingState) => void) {
     this.onChange = onChange;
@@ -26,6 +28,7 @@ export class Recorder {
     this.isRecording = true;
     this.steps = [...initialSteps];
     this.stepCounter = initialSteps.length;
+    this.lastTarget = null;
     this.attachListeners();
     this.notifyStateChange();
   }
@@ -42,6 +45,23 @@ export class Recorder {
     this.detachListeners();
     this.notifyStateChange();
     return this.getRecordingData();
+  }
+
+  /** Registra un cambio de página (carga completa o navegación sin recarga). */
+  recordNavigation(url: string): void {
+    if (!this.isRecording) return;
+    this.lastTarget = null;
+    this.stepCounter++;
+    this.steps.push({
+      order: this.stepCounter,
+      action: "navigate",
+      label: `Navegar a "${url}"`,
+      selector: "",
+      tagName: "",
+      innerText: "",
+      value: url,
+    });
+    this.notifyStateChange();
   }
 
   getState(): RecordingState {
@@ -87,6 +107,21 @@ export class Recorder {
     const selector = getCssSelector(element);
     const innerText = getVisibleText(element);
     const label = getActionLabel(action, element, value, key);
+
+    // Repeticiones consecutivas de la misma acción sobre el mismo elemento (sin otra acción en medio):
+    // - input: el último paso pasa a tener el valor final.
+    // - mouseover: se descarta la repetición.
+    const last = this.steps[this.steps.length - 1];
+    const isRepeat = last?.action === action && this.lastTarget === element;
+    this.lastTarget = element;
+
+    if (isRepeat && action === "mouseover") return;
+
+    if (isRepeat && action === "input") {
+      this.steps[this.steps.length - 1] = { ...last, label, selector, innerText, value };
+      this.notifyStateChange();
+      return;
+    }
 
     this.stepCounter++;
     const step: Step = {

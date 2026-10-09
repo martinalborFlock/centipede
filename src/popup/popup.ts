@@ -12,6 +12,8 @@ let session: Session | null = null;
 const btnRecord = document.getElementById("btn-record") as HTMLButtonElement;
 const btnStop = document.getElementById("btn-stop") as HTMLButtonElement;
 const btnClose = document.getElementById("btn-close") as HTMLButtonElement;
+const btnSave = document.getElementById("btn-save") as HTMLButtonElement;
+const btnSessions = document.getElementById("btn-sessions") as HTMLButtonElement;
 const btnCopyReport = document.getElementById("btn-copy-report") as HTMLButtonElement;
 const btnCopyText = document.getElementById("btn-copy-text") as HTMLButtonElement;
 const btnCopyJson = document.getElementById("btn-copy-json") as HTMLButtonElement;
@@ -46,6 +48,7 @@ function render(): void {
   btnRecord.disabled = isRecording;
   btnStop.disabled = !isRecording;
   btnClose.disabled = !session;
+  btnSave.disabled = !hasSteps;
 
   btnCopyReport.disabled = !hasSteps;
   btnCopyText.disabled = !hasSteps;
@@ -121,12 +124,54 @@ btnCopyJson.addEventListener("click", () => {
   if (session) copyToClipboard(JSON.stringify(toRecordingData(session), null, 2));
 });
 
+btnSave.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "SAVE_SESSION" });
+  if (!response?.success) {
+    showToast(response?.error ?? "No se pudo guardar la grabación");
+    return;
+  }
+  showToast("Grabación guardada");
+});
+
+btnSessions.addEventListener("click", async () => {
+  const browserWindow = await chrome.windows.getCurrent();
+  await chrome.sidePanel.open({ windowId: browserWindow.id! });
+});
+
+const bridgeStatus = document.getElementById("bridge-status") as HTMLDivElement;
+const bridgeToken = document.getElementById("bridge-token") as HTMLInputElement;
+const btnSaveToken = document.getElementById("btn-save-token") as HTMLButtonElement;
+
+function renderBridge(connected: boolean): void {
+  bridgeStatus.textContent = connected ? "Claude: conectado" : "Claude: desconectado";
+  bridgeStatus.classList.toggle("connected", connected);
+}
+
+btnSaveToken.addEventListener("click", async () => {
+  const token = bridgeToken.value.trim();
+  if (!token) {
+    showToast("Ingresá el token");
+    return;
+  }
+  await chrome.storage.local.set({ bridgeToken: token });
+  bridgeToken.value = "";
+  showToast("Token guardado");
+});
+
 async function init(): Promise<void> {
   session = await loadSession();
   render();
   onSessionChange((updated) => {
     session = updated;
     render();
+  });
+
+  const stored = await chrome.storage.local.get("bridgeConnected");
+  renderBridge(Boolean(stored.bridgeConnected));
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && "bridgeConnected" in changes) {
+      renderBridge(Boolean(changes.bridgeConnected.newValue));
+    }
   });
 }
 

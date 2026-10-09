@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Centipede",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Records user interactions to reproduce bugs!",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "alarms",
+    "sidePanel",
+    "unlimitedStorage"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -15,6 +18,9 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "background.js",
