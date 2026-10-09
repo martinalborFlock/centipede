@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bug Recorder</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-container">
+      <div class="popup-header">
+        <div class="popup-title">
+          <span class="popup-icon">🔴</span>
+          Bug Recorder
+        </div>
+      </div>
+
+      <div class="popup-status" id="popup-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Inactivo</span>
+      </div>
+
+      <div class="popup-step-count" id="popup-step-count">
+        <span id="step-count-text">0 pasos grabados</span>
+      </div>
+
+      <div class="popup-actions">
+        <button class="popup-btn primary" id="btn-record">
+          <span id="btn-record-text">Grabar</span>
+        </button>
+        <button class="popup-btn secondary" id="btn-stop" disabled>
+          Detener
+        </button>
+        <button class="popup-btn close" id="btn-close" disabled>
+          Cerrar
+        </button>
+      </div>
+
+      <div class="popup-export" id="popup-export">
+        <button class="popup-btn export" id="btn-copy-text" disabled>
+          Copiar como texto
+        </button>
+        <button class="popup-btn export" id="btn-copy-report" disabled>
+          Copiar reporte
+        </button>
+        <button class="popup-btn export" id="btn-copy-json" disabled>
+          Copiar como JSON
+        </button>
+      </div>
+
+      <div class="popup-preview" id="popup-preview">
+        <div class="preview-label">Vista previa:</div>
+        <div class="preview-content" id="preview-content">
+          No hay pasos grabados
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
