@@ -66,7 +66,13 @@
       <section class="sp-card">
         <div class="sp-detail-title" id="detail-title"></div>
         <div class="sp-detail-meta" id="detail-meta"></div>
+        <div class="sp-muted" id="detail-dirty" hidden>Cambios sin guardar</div>
         <ol class="sp-steps" id="detail-steps"></ol>
+        <div class="sp-row">
+          <button class="sp-btn primary" id="detail-save" hidden>Guardar cambios</button>
+          <button class="sp-btn ghost" id="detail-cancel" hidden>Descartar</button>
+          <button class="sp-btn ghost" id="detail-edit">Editar pasos</button>
+        </div>
         <div class="sp-row">
           <button class="sp-btn ghost" id="detail-report">Reporte</button>
           <button class="sp-btn ghost" id="detail-text">Texto</button>

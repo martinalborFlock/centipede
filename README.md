@@ -212,3 +212,16 @@ Ejemplos de pedidos a Claude:
 - `node mcp/server.mjs`: arranca el puente a mano (útil para depurar). Los logs van a stderr; stdout está reservado para el protocolo MCP.
 
 Ver `ROADMAP.md` para el plan de desarrollo.
+
+---
+
+## Tests
+
+Los tests unitarios usan [Vitest](https://vitest.dev) y viven junto al código (`*.test.ts`).
+
+```bash
+npm test          # una corrida
+npm run test:watch
+```
+
+Cubren la lógica de edición de pasos (`src/sidepanel/step-edit.ts`) y el acceso a la biblioteca (`src/storage/session-store.ts`). El storage de Chrome se simula; no hace falta abrir la extensión.

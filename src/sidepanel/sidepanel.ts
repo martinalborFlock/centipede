@@ -1,4 +1,4 @@
-import { RecordingData, SavedSession, Session } from "../types";
+import { RecordingData, SavedSession, Session, Step } from "../types";
 import { ReportFormat, renderReport } from "../report/render-report";
 import {
   CONFIRM_DISCARD_MESSAGE,
@@ -7,13 +7,21 @@ import {
   loadSession,
   onLibraryChange,
   onSessionChange,
+  updateSavedSession,
 } from "../storage/session-store";
+import { hasChanges, moveStep, navigationChanges, removeStep, renumber, updateStep } from "./step-edit";
 
 type DetailView = { kind: "current" } | { kind: "saved"; id: string };
+
+const DISCARD_EDIT_MESSAGE = "Hay cambios sin guardar en los pasos. ¿Descartarlos?";
 
 let session: Session | null = null;
 let library: SavedSession[] = [];
 let detail: DetailView | null = null;
+// Borrador de edición (solo grabaciones guardadas). `null` cuando no se está editando.
+let draft: Step[] | null = null;
+// Pasos guardados al empezar a editar: contra ellos se compara el borrador.
+let draftBase: Step[] = [];
 
 function $<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -46,6 +54,10 @@ const detailButtons: Array<[HTMLButtonElement, ReportFormat]> = [
   [$<HTMLButtonElement>("detail-json"), "json"],
 ];
 const btnDetailDelete = $<HTMLButtonElement>("detail-delete");
+const btnDetailEdit = $<HTMLButtonElement>("detail-edit");
+const btnDetailSave = $<HTMLButtonElement>("detail-save");
+const btnDetailCancel = $<HTMLButtonElement>("detail-cancel");
+const detailDirty = $<HTMLDivElement>("detail-dirty");
 const toast = $<HTMLDivElement>("toast");
 
 function send(message: unknown): Promise<any> {
@@ -146,6 +158,129 @@ function renderLibrary(): void {
   libraryList.replaceChildren(...entries.map(libraryItem));
 }
 
+function isDirty(): boolean {
+  return draft !== null && hasChanges(draftBase, draft);
+}
+
+/** Pide confirmación si hay cambios sin guardar. Devuelve `true` si se puede salir de la edición. */
+function confirmDiscard(): boolean {
+  return !isDirty() || confirm(DISCARD_EDIT_MESSAGE);
+}
+
+/** Muestra u oculta los controles de edición y bloquea las acciones que no corresponden mientras se edita. */
+function updateEditState(): void {
+  const isSaved = detail?.kind === "saved";
+  const editing = draft !== null;
+
+  btnDetailEdit.hidden = !isSaved || editing;
+  btnDetailSave.hidden = !editing;
+  btnDetailCancel.hidden = !editing;
+  btnDetailSave.disabled = !isDirty();
+  detailDirty.hidden = !isDirty();
+  btnDetailDelete.hidden = !isSaved || editing;
+  for (const [button] of detailButtons) button.disabled = editing;
+}
+
+function readonlyStep(step: Step): HTMLLIElement {
+  const item = document.createElement("li");
+  item.textContent = step.label;
+  return item;
+}
+
+function iconButton(text: string, label: string, disabled: boolean, onClick: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.className = "sp-btn ghost icon";
+  button.textContent = text;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.disabled = disabled;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+/** Paso editable. Los campos de texto actualizan el borrador sin volver a renderizar, para no perder el foco. */
+function editableStep(step: Step, index: number, count: number): HTMLLIElement {
+  const item = document.createElement("li");
+  item.className = "sp-step-edit";
+
+  const row = document.createElement("div");
+  row.className = "sp-step-row";
+
+  // En un paso de navegación, el único campo es la URL: la descripción se deriva de ella.
+  const isNavigation = step.action === "navigate";
+  const label = document.createElement("input");
+  label.className = "sp-input";
+  label.value = isNavigation ? step.value ?? "" : step.label;
+  label.setAttribute(
+    "aria-label",
+    isNavigation ? `URL del paso ${index + 1}` : `Descripción del paso ${index + 1}`
+  );
+  label.addEventListener("input", () => {
+    if (!draft) return;
+    const changes = isNavigation ? navigationChanges(label.value) : { label: label.value };
+    draft = updateStep(draft, index, changes);
+    updateEditState();
+  });
+
+  row.append(
+    label,
+    iconButton("↑", "Subir paso", index === 0, () => commitDraft(moveStep(draft!, index, -1))),
+    iconButton("↓", "Bajar paso", index === count - 1, () => commitDraft(moveStep(draft!, index, 1))),
+    iconButton("✕", "Eliminar paso", false, () => commitDraft(removeStep(draft!, index)))
+  );
+  item.append(row);
+
+  if (!isNavigation && step.value !== undefined) {
+    const value = document.createElement("input");
+    value.className = "sp-input sp-step-value";
+    value.value = step.value;
+    value.placeholder = "Valor";
+    value.setAttribute("aria-label", `Valor del paso ${index + 1}`);
+    value.addEventListener("input", () => {
+      if (draft) draft = updateStep(draft, index, { value: value.value });
+      updateEditState();
+    });
+    item.append(value);
+  }
+
+  return item;
+}
+
+/** Reemplaza el borrador por una versión nueva de los pasos y vuelve a renderizar la lista. */
+function commitDraft(next: Step[]): void {
+  draft = next;
+  renderDetail();
+}
+
+function startEdit(): void {
+  if (detail?.kind !== "saved") return;
+  const entry = detailData();
+  if (!entry) return;
+  draftBase = entry.steps;
+  draft = entry.steps.map((step) => ({ ...step }));
+  renderDetail();
+}
+
+function cancelEdit(): void {
+  if (!confirmDiscard()) return;
+  draft = null;
+  render();
+}
+
+async function saveEdit(): Promise<void> {
+  if (draft === null || detail?.kind !== "saved") return;
+  if (draft.some((step) => step.label.trim() === "")) {
+    showToast("Todos los pasos necesitan una descripción");
+    return;
+  }
+
+  const id = detail.id;
+  const saved = await updateSavedSession(id, renumber(draft));
+  draft = null;
+  showToast(saved ? "Cambios guardados" : "La grabación ya no existe");
+  render();
+}
+
 function renderDetail(): void {
   const data = detailData();
   if (!data) return;
@@ -153,20 +288,22 @@ function renderDetail(): void {
   detailTitle.textContent = data.title || data.url;
   detailMeta.textContent = `${data.url}\nFecha: ${formatDate(data.timestamp)} · ${data.steps.length} pasos`;
 
+  const steps = draft ?? data.steps;
   detailSteps.replaceChildren(
-    ...data.steps.map((step) => {
-      const item = document.createElement("li");
-      item.textContent = step.label;
-      return item;
-    })
+    ...steps.map((step, index) =>
+      draft ? editableStep(step, index, steps.length) : readonlyStep(step)
+    )
   );
 
-  btnDetailDelete.hidden = detail?.kind === "current";
+  updateEditState();
 }
 
 function render(): void {
-  // Si la vista de detalle apunta a algo que ya no existe, se vuelve a la lista.
-  if (detail && !detailData()) detail = null;
+  // Si la vista de detalle apunta a algo que ya no existe, se vuelve a la lista (descartando el borrador).
+  if (detail && !detailData()) {
+    detail = null;
+    draft = null;
+  }
 
   renderCurrent();
   renderLibrary();
@@ -216,8 +353,21 @@ for (const [button, format] of detailButtons) {
 }
 
 btnBack.addEventListener("click", () => {
+  if (!confirmDiscard()) return;
   detail = null;
+  draft = null;
   render();
+});
+
+btnDetailEdit.addEventListener("click", startEdit);
+btnDetailSave.addEventListener("click", saveEdit);
+btnDetailCancel.addEventListener("click", cancelEdit);
+
+// Al cerrar la página con cambios sin guardar, el navegador pide confirmación (según el navegador, no siempre aparece).
+window.addEventListener("beforeunload", (event) => {
+  if (!isDirty()) return;
+  event.preventDefault();
+  event.returnValue = "";
 });
 
 btnDetailDelete.addEventListener("click", async () => {

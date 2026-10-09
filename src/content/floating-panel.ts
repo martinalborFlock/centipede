@@ -17,6 +17,8 @@ export class FloatingPanel {
   private saveButton: HTMLButtonElement | null = null;
   private steps: Step[] = [];
   private timestamp = new Date().toISOString();
+  // URL donde empezó la grabación (se exporta como `url`).
+  private startUrl = window.location.href;
   private onStop?: () => void;
   private onNewRecording?: () => void;
   private onSave?: () => void;
@@ -58,9 +60,10 @@ export class FloatingPanel {
     this.removeStyles();
   }
 
-  updateSteps(steps: Step[], timestamp: string): void {
+  updateSteps(steps: Step[], timestamp: string, startUrl: string): void {
     this.steps = steps;
     this.timestamp = timestamp;
+    this.startUrl = startUrl;
     this.renderSteps();
   }
 
@@ -469,7 +472,7 @@ export class FloatingPanel {
   private formatAsReport(): string {
     return formatNaturalReport({
       steps: this.steps,
-      url: window.location.href,
+      url: this.startUrl,
       title: document.title,
       timestamp: this.timestamp,
     });
@@ -483,7 +486,7 @@ export class FloatingPanel {
     return JSON.stringify(
       {
         steps: this.steps,
-        url: window.location.href,
+        url: this.startUrl,
         timestamp: this.timestamp,
         title: document.title,
       },

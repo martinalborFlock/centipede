@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Centipede",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Records user interactions to reproduce bugs!",
   "permissions": [
     "activeTab",

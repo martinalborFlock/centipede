@@ -230,6 +230,30 @@ body {
   line-height: 1.4;
 }
 
+.sp-step-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.sp-step-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sp-step-row .sp-input,
+.sp-step-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.sp-btn.icon {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+}
+
 .sp-toast {
   position: fixed;
   bottom: 12px;

@@ -1,4 +1,4 @@
-import { RecordingData, SavedSession, Session } from "../types";
+import { RecordingData, SavedSession, Session, Step } from "../types";
 
 const SESSION_KEY = "session";
 const LIBRARY_KEY = "library";
@@ -52,6 +52,19 @@ export async function archiveSession(session: Session): Promise<SavedSession> {
   const library = await loadLibrary();
   await chrome.storage.local.set({ [LIBRARY_KEY]: [entry, ...library] });
   return entry;
+}
+
+/** Reemplaza los pasos de una grabación guardada. Devuelve `null` si ya no existe. */
+export async function updateSavedSession(id: string, steps: Step[]): Promise<SavedSession | null> {
+  const library = await loadLibrary();
+  const index = library.findIndex((entry) => entry.id === id);
+  if (index === -1) return null;
+
+  const updated: SavedSession = { ...library[index], steps };
+  const next = [...library];
+  next[index] = updated;
+  await chrome.storage.local.set({ [LIBRARY_KEY]: next });
+  return updated;
 }
 
 export async function deleteSavedSession(id: string): Promise<void> {

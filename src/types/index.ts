@@ -40,6 +40,8 @@ export interface RecordingState {
 export interface Session extends RecordingData {
   /** Pestaña que tiene la grabación. `null` si la pestaña ya no existe. */
   tabId: number | null;
+  /** URL actual de la pestaña. `url` (heredado de `RecordingData`) es la URL donde empezó la grabación. */
+  currentUrl?: string;
   isRecording: boolean;
   /** `false` si la grabación se inició desde el panel lateral: no se muestra el panel flotante. */
   showPanel?: boolean;

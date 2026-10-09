@@ -5,8 +5,23 @@ import {
   getActionLabel,
 } from "./element-analyzer";
 
+/** Paso `navigate` para una URL. Lo usan el primer paso de cada grabación y los cambios de página. */
+export function createNavigationStep(order: number, url: string): Step {
+  return {
+    order,
+    action: "navigate",
+    label: `Navegar a "${url}"`,
+    selector: "",
+    tagName: "",
+    innerText: "",
+    value: url,
+  };
+}
+
 export class Recorder {
   private steps: Step[] = [];
+  // URL donde empezó la grabación: es la que se exporta en `url`.
+  private startUrl = window.location.href;
   private isRecording = false;
   private listeners: Array<{
     event: string;
@@ -23,10 +38,11 @@ export class Recorder {
     this.onChange = onChange;
   }
 
-  start(initialSteps: Step[] = []): void {
+  start(initialSteps: Step[] = [], startUrl: string = window.location.href): void {
     if (this.isRecording) return;
     this.isRecording = true;
     this.steps = [...initialSteps];
+    this.startUrl = startUrl;
     this.stepCounter = initialSteps.length;
     this.lastTarget = null;
     this.attachListeners();
@@ -52,15 +68,7 @@ export class Recorder {
     if (!this.isRecording) return;
     this.lastTarget = null;
     this.stepCounter++;
-    this.steps.push({
-      order: this.stepCounter,
-      action: "navigate",
-      label: `Navegar a "${url}"`,
-      selector: "",
-      tagName: "",
-      innerText: "",
-      value: url,
-    });
+    this.steps.push(createNavigationStep(this.stepCounter, url));
     this.notifyStateChange();
   }
 
@@ -80,7 +88,7 @@ export class Recorder {
   private getRecordingData(): RecordingData {
     return {
       steps: [...this.steps],
-      url: window.location.href,
+      url: this.startUrl,
       timestamp: new Date().toISOString(),
       title: document.title,
     };
@@ -89,7 +97,7 @@ export class Recorder {
   private getEmptyData(): RecordingData {
     return {
       steps: [],
-      url: window.location.href,
+      url: this.startUrl,
       timestamp: new Date().toISOString(),
       title: document.title,
     };

@@ -1,4 +1,4 @@
-import { Recorder } from "./recorder";
+import { Recorder, createNavigationStep } from "./recorder";
 import { FloatingPanel } from "./floating-panel";
 import { Message, RecordingState, Session, Step } from "../types";
 import { loadSession, saveSession } from "../storage/session-store";
@@ -7,6 +7,8 @@ let recorder: Recorder | null = null;
 let panel: FloatingPanel | null = null;
 let tabId: number | null = null;
 let startedAt = new Date().toISOString();
+// URL donde empezó la grabación; es la que se exporta como `url` y no cambia durante la grabación.
+let startUrl = window.location.href;
 // URL de la página actual; se actualiza antes de la navegación para que la sesión quede con el destino.
 let currentUrl = window.location.href;
 // `false` cuando la grabación se inició desde el panel lateral: la ventana flotante no se muestra.
@@ -18,14 +20,15 @@ function buildSession(steps: Step[], isRecording: boolean): Session {
     isRecording,
     showPanel: panelEnabled,
     steps,
-    url: currentUrl,
+    url: startUrl,
+    currentUrl,
     title: document.title,
     timestamp: startedAt,
   };
 }
 
 function onRecorderChange(steps: Step[], state: RecordingState): void {
-  panel?.updateSteps(steps, startedAt);
+  panel?.updateSteps(steps, startedAt, startUrl);
   panel?.updateState(state);
   saveSession(buildSession(steps, state.isRecording)).catch(console.error);
 }
@@ -54,7 +57,7 @@ function fallbackCopy(text: string): void {
 function createPanel(): FloatingPanel {
   return new FloatingPanel({
     onStop: () => stopRecording(),
-    onNewRecording: () => beginRecording([], new Date().toISOString(), true),
+    onNewRecording: () => startFreshRecording(true),
     onSave: () => {
       chrome.runtime.sendMessage({ type: "SAVE_SESSION" } as Message).catch(() => {});
     },
@@ -78,9 +81,17 @@ function teardown(): void {
   panel = null;
 }
 
-function beginRecording(steps: Step[], timestamp: string, withPanel: boolean): void {
+/** Nueva grabación desde la página actual: el primer paso navega a esa URL. */
+function startFreshRecording(withPanel: boolean): void {
+  const url = window.location.href;
+  currentUrl = url;
+  beginRecording([createNavigationStep(1, url)], new Date().toISOString(), withPanel, url);
+}
+
+function beginRecording(steps: Step[], timestamp: string, withPanel: boolean, url: string): void {
   teardown();
   startedAt = timestamp;
+  startUrl = url;
   panelEnabled = withPanel;
   if (withPanel) {
     panel = createPanel();
@@ -92,16 +103,17 @@ function beginRecording(steps: Step[], timestamp: string, withPanel: boolean): v
     if (current === recorder) onRecorderChange(updatedSteps, state);
   });
   recorder = current;
-  current.start(steps);
+  current.start(steps, url);
 }
 
 function restoreStoppedSession(session: Session): void {
   teardown();
   startedAt = session.timestamp;
+  startUrl = session.url;
   panelEnabled = true;
   panel = createPanel();
   panel.show();
-  panel.updateSteps(session.steps, startedAt);
+  panel.updateSteps(session.steps, startedAt, startUrl);
   panel.updateState({ isRecording: false, stepCount: session.steps.length });
 }
 
@@ -136,9 +148,9 @@ async function restoreSession(): Promise<void> {
 
   const withPanel = session.showPanel !== false;
   if (session.isRecording) {
-    beginRecording(session.steps, session.timestamp, withPanel);
-    // Navegación entre documentos: si la URL guardada no es la actual, la página cambió.
-    if (session.url !== currentUrl) recorder?.recordNavigation(currentUrl);
+    beginRecording(session.steps, session.timestamp, withPanel, session.url);
+    // Navegación entre documentos: si la última URL registrada no es la actual, la página cambió.
+    if ((session.currentUrl ?? session.url) !== currentUrl) recorder?.recordNavigation(currentUrl);
   } else if (withPanel) {
     restoreStoppedSession(session);
   }
@@ -149,7 +161,7 @@ chrome.runtime.onMessage.addListener(
     switch (message.type) {
       case "START_RECORDING":
         if (message.tabId !== undefined) tabId = message.tabId;
-        beginRecording([], new Date().toISOString(), message.withPanel !== false);
+        startFreshRecording(message.withPanel !== false);
         sendResponse({ success: true });
         return false;
 
