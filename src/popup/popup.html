@@ -36,6 +36,11 @@
         </button>
       </div>
 
+      <div class="popup-actions">
+        <button class="popup-btn primary" id="btn-save" disabled>Guardar grabación</button>
+        <button class="popup-btn export" id="btn-sessions">Ver sesiones</button>
+      </div>
+
       <div class="popup-export" id="popup-export">
         <button class="popup-btn export" id="btn-copy-text" disabled>
           Copiar como texto
@@ -46,6 +51,14 @@
         <button class="popup-btn export" id="btn-copy-json" disabled>
           Copiar como JSON
         </button>
+      </div>
+
+      <div class="popup-bridge">
+        <div class="bridge-status" id="bridge-status">Claude: desconectado</div>
+        <div class="bridge-token-row">
+          <input type="password" id="bridge-token" class="bridge-token-input" placeholder="Token de emparejamiento" autocomplete="off" />
+          <button class="popup-btn export" id="btn-save-token">Guardar</button>
+        </div>
       </div>
 
       <div class="popup-preview" id="popup-preview">

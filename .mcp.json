@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "centipede": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "mcp/server.mjs"
+      ],
+      "env": {}
+    }
+  }
+}

@@ -1,5 +1,8 @@
 import { Message } from "../types";
-import { loadSession, saveSession } from "../storage/session-store";
+import { archiveSession, loadSession, saveSession } from "../storage/session-store";
+import { initBridge } from "../bridge/bridge-client";
+
+initBridge();
 
 const UNSUPPORTED_PAGE_ERROR = "Esta página no permite grabar";
 
@@ -17,7 +20,7 @@ async function sendToTab(tabId: number, message: Message): Promise<any> {
   }
 }
 
-async function startRecording(): Promise<unknown> {
+async function startRecording(withPanel: boolean): Promise<unknown> {
   const tabId = await getActiveTabId();
   if (tabId === null) {
     return { success: false, error: "No hay una pestaña activa" };
@@ -26,7 +29,7 @@ async function startRecording(): Promise<unknown> {
   // Se lee antes de iniciar: al iniciar, el content script de la nueva pestaña sobrescribe la sesión.
   const previous = await loadSession();
 
-  const response = await sendToTab(tabId, { type: "START_RECORDING", tabId });
+  const response = await sendToTab(tabId, { type: "START_RECORDING", tabId, withPanel });
   if (!response?.success) {
     return { success: false, error: UNSUPPORTED_PAGE_ERROR };
   }
@@ -60,16 +63,33 @@ async function closeSession(): Promise<unknown> {
   return { success: true };
 }
 
+/** Archiva la grabación en la biblioteca y cierra la sesión activa. */
+async function saveCurrentSession(): Promise<unknown> {
+  const session = await loadSession();
+  if (!session || session.steps.length === 0) {
+    return { success: false, error: "No hay pasos para guardar" };
+  }
+
+  await archiveSession(session);
+  if (session.tabId != null) {
+    await sendToTab(session.tabId, { type: "CLOSE_PANEL" });
+  }
+  await saveSession(null);
+  return { success: true };
+}
+
 async function handleMessage(message: Message, sender: chrome.runtime.MessageSender): Promise<unknown> {
   switch (message.type) {
     case "GET_TAB_ID":
       return { tabId: sender.tab?.id ?? null };
     case "START_RECORDING":
-      return startRecording();
+      return startRecording(message.withPanel !== false);
     case "STOP_RECORDING":
       return stopRecording();
     case "CLOSE_PANEL":
       return closeSession();
+    case "SAVE_SESSION":
+      return saveCurrentSession();
     default:
       return { success: false, error: "Unknown message type" };
   }
